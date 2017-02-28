@@ -1,0 +1,85 @@
+##配置nginx的nginx.conf
+user              root;
+worker_processes  1;
+
+error_log  /var/log/nginx/error.log;
+
+pid        /var/run/nginx.pid;
+
+
+events {
+    worker_connections  1024;
+}
+
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+    client_max_body_size 30m;
+
+    log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                      '$status $body_bytes_sent "$http_referer" '
+                      '"$http_user_agent" "$http_x_forwarded_for"';
+
+    access_log  /var/log/nginx/access.log  main;
+
+    sendfile        on;
+
+    keepalive_timeout  3600; 
+
+fastcgi_connect_timeout 300;
+fastcgi_send_timeout 300;
+fastcgi_read_timeout 300; 
+fastcgi_buffer_size 256k;
+fastcgi_buffers 16 256k; 
+fastcgi_busy_buffers_size 512k;  
+fastcgi_temp_file_write_size 512k;
+
+
+server {
+
+     listen       9009;
+     server_name  10.0.0.1;
+
+     access_log   /var/log/nginx/access.log;
+     error_log    /var/log/nginx/error.log;
+
+     location / {
+        include     uwsgi_params;
+        uwsgi_pass 127.0.0.1:9002;
+        uwsgi_read_timeout 1800;
+        uwsgi_send_timeout 300;
+        proxy_read_timeout 300;
+
+                }
+     location /static/ {
+        expires 30d;
+        add_header Cache-Control private;
+        alias /home/apps/static/;
+                }
+
+        }
+}
+
+
+
+##配置uwsgi的uwsgi.ini
+[uwsgi]
+uid = root
+gid = root
+socket = 127.0.0.1:9002 
+master=True
+processes = 8
+listen = 120 
+enable-threads = true
+chdir=/home/pj_django/pj_django
+wsgi-file = /home/pj_django/pj_django/wsgi.py
+module=pj_django.wsgi:application
+pidfile=/home/pj_django/pj_django/p.pid
+pythonpath = /home/pj_django
+vacuum=True
+max-requests=5000
+daemonize=/home/pj_django/pj_django/cyou.log
+post-buffering = 8192
+chmod-socket = 664
+env = DJANGO_SETTINGS_MODULE=pj_django.settings
